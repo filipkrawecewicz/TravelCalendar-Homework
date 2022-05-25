@@ -1,125 +1,135 @@
 package com.krawcewicz.travelcalendar;
 
+import static com.prolificinteractive.materialcalendarview.MaterialCalendarView.SELECTION_MODE_MULTIPLE;
 import static java.util.Calendar.DAY_OF_MONTH;
+import static java.util.Calendar.MONTH;
 
-import androidx.appcompat.app.AppCompatActivity;
-
+import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ProgressBar;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
-import com.google.android.material.datepicker.CalendarConstraints;
-import com.google.android.material.datepicker.DateValidatorPointForward;
-import com.google.android.material.datepicker.MaterialDatePicker;
-import com.google.android.material.datepicker.MaterialPickerOnPositiveButtonClickListener;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.prolificinteractive.materialcalendarview.CalendarDay;
 import com.prolificinteractive.materialcalendarview.MaterialCalendarView;
+import com.prolificinteractive.materialcalendarview.OnDateSelectedListener;
 
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Calendar;
-import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
 
+    private CalendarDay firstDate;
+    private CalendarDay secondDate;
+    private CalendarDay thirdDate;
+    //This decides how much time between drawing increments on progressBar. (1 day == progressBarTick)
+    private int progressBarTick = 1000;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
 
-        CalendarConstraints constraints = new CalendarConstraints.Builder()
-                .setValidator(DateValidatorPointForward.now())
-                .setStart(new Date().getTime())
-                .setEnd(getLastDayOfYear())
-                .build();
-
-        MaterialDatePicker<Long> firstPicker = MaterialDatePicker.Builder.datePicker()
-                .setCalendarConstraints(constraints)
-                .setTitleText("Select start date")
-                .build();
-
-        MaterialDatePicker<Long> secondPicker = MaterialDatePicker.Builder.datePicker()
-                .setCalendarConstraints(constraints)
-                .setTitleText("Select middle date")
-                .build();
-
-        MaterialDatePicker<Long> thirdPicker = MaterialDatePicker.Builder.datePicker()
-                .setCalendarConstraints(constraints)
-                .setTitleText("Select end date")
-                .build();
-
-        Button firstDateBtn = findViewById(R.id.firstDateBtn);
-        Button secondDateBtn = findViewById(R.id.secondDateBtn);
-        Button thirdDateBtn = findViewById(R.id.thirdDateBtn);
-        TextView firstDateTxt = findViewById(R.id.firstDateTxt);
-        TextView secondDateTxt = findViewById(R.id.secondDateTxt);
-        TextView thirdDateTxt = findViewById(R.id.thirdDateTxt);
-        MaterialCalendarView calendarView = findViewById(R.id.calendarView);
-
-
-        firstPicker.addOnPositiveButtonClickListener(new MaterialPickerOnPositiveButtonClickListener<Long>() {
+        /* MY CODE STARTS HERE */
+        SeekBar seekbar = findViewById(R.id.seekBar);
+        TextView seekBarTxt = findViewById(R.id.seekBarTxt);
+        seekbar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @SuppressLint("SetTextI18n")
             @Override
-            public void onPositiveButtonClick(Long selection) {
-                String stringDate = dateStringFromLong(selection);
-                firstDateTxt.setText(stringDate);
-                calendarView.setDateSelected(dateFromLong(selection), true);
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (progress < 10) {
+                    progressBarTick = 1000;
+                    seekBarTxt.setText("1 day = " + progressBarTick / 1000 + " sec");
+
+                } else {
+                    progressBarTick = progress * 100;
+                    seekBarTxt.setText("1 day = " + progressBarTick / 1000 + " sec");
+                }
+
             }
-        });
-        secondPicker.addOnPositiveButtonClickListener(new MaterialPickerOnPositiveButtonClickListener<Long>() {
+
             @Override
-            public void onPositiveButtonClick(Long selection) {
-                String stringDate = dateStringFromLong(selection);
-                secondDateTxt.setText(stringDate);
-                calendarView.setDateSelected(dateFromLong(selection), true);
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
             }
-        });
-        thirdPicker.addOnPositiveButtonClickListener(new MaterialPickerOnPositiveButtonClickListener<Long>() {
+
             @Override
-            public void onPositiveButtonClick(Long selection) {
-                String stringDate = dateStringFromLong(selection);
-                thirdDateTxt.setText(stringDate);
-                calendarView.setDateSelected(dateFromLong(selection), true);
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
             }
         });
 
-        firstDateBtn.setOnClickListener(new View.OnClickListener() {
+        Button startBtn = findViewById(R.id.startBtn);
+        startBtn.setEnabled(false);
+        ProgressBar progressBar = findViewById(R.id.progressBar);
+        startBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                firstPicker.show(getSupportFragmentManager(), "DATE_PICKER1");
+                Instant instant = firstDate.getDate().toInstant();//.minusMillis(firstDate.getDate().getTime());
+                long daysBetween = instant.until(thirdDate.getDate().toInstant(), ChronoUnit.DAYS);
+                daysBetween += 1; // Because instant.until is endExclusive and doesn't count last day
+
+                int progressIncrement = (int) Math.ceil(100d / daysBetween);
+                CountDownTimer countDownTimer = new CountDownTimer(daysBetween * progressBarTick, progressBarTick) {
+
+                    public void onTick(long millisUntilFinished) {
+                        progressBar.incrementProgressBy(progressIncrement);
+                    }
+
+                    public void onFinish() {
+                        // DO something
+                    }
+                }.start();
             }
         });
-        secondDateBtn.setOnClickListener(new View.OnClickListener() {
+
+        MaterialCalendarView mCalendarView = findViewById(R.id.calendarView);
+        mCalendarView.setSelectionMode(SELECTION_MODE_MULTIPLE);
+        Calendar endDate = Calendar.getInstance();
+        endDate.set(MONTH, 11);
+        endDate.set(DAY_OF_MONTH, 31);
+        CalendarDay.from(endDate);
+        mCalendarView.state().edit()
+                .setMinimumDate(CalendarDay.today())
+                .setMaximumDate(endDate)
+                .commit();
+
+        mCalendarView.setOnDateChangedListener(new OnDateSelectedListener() {
             @Override
-            public void onClick(View v) {
-                secondPicker.show(getSupportFragmentManager(), "DATE_PICKER2");
+            public void onDateSelected(@NonNull MaterialCalendarView calView, @NonNull CalendarDay date, boolean selected) {
+                if (firstDate == null) {//on first tap
+                    firstDate = date;
+                    calView.setDateSelected(date, true);
+                    progressBar.setProgress(0, true);
+                    startBtn.setEnabled(false);
+                } else if (secondDate == null && date.isAfter(firstDate)) {//on second tap
+                    secondDate = date;
+                    calView.setDateSelected(date, true);
+                    startBtn.setEnabled(false);
+                } else if (thirdDate == null && secondDate != null && date.isAfter(secondDate)) {//on third tap
+                    thirdDate = date;
+                    calView.setDateSelected(date, true);
+                    startBtn.setEnabled(true);
+                } else {
+                    firstDate = date;
+                    secondDate = null;
+                    thirdDate = null;
+                    calView.clearSelection();
+                    calView.setDateSelected(firstDate, true);
+                    progressBar.setProgress(0, true);
+                    startBtn.setEnabled(false);
+                }
+
             }
         });
-        thirdDateBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                thirdPicker.show(getSupportFragmentManager(), "DATE_PICKER3");
-            }
-        });
-
 
     }
 
-    private String dateStringFromLong(Long selection) {
-        return Instant.ofEpochMilli(selection).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ISO_LOCAL_DATE);
-    }
-    private Date dateFromLong(Long selection) {
-        return new Date(selection);
-    }
-
-    private long getLastDayOfYear() {
-        Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.MONTH, Calendar.DECEMBER);
-        cal.set(DAY_OF_MONTH, 31);
-        Date lastDay = cal.getTime();
-        System.out.println("### " + lastDay);
-        return lastDay.getTime();
-    }
 }
